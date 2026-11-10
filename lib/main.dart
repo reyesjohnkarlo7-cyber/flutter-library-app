@@ -1,9 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_firebase/student_page.dart';
-
+import 'package:flutter_firebase/login_page.dart'; // Make sure this matches your login file name/path
 import 'firebase_options.dart';
-
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,7 +26,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: FirebaseHomePage(),
+      home: const LoginPage(), // Set default page to LoginPage
     );
   }
 }
@@ -42,28 +41,33 @@ class FirebaseHomePage extends StatelessWidget {
         title: const Text('Flutter Firebase'),
         centerTitle: true,
       ),
-      body:  Center(
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.cloud_done, size: 80, color: Colors.green),
-            SizedBox(height: 16),
-            Text(
+            const Icon(Icons.cloud_done, size: 80, color: Colors.green),
+            const SizedBox(height: 16),
+            const Text(
               'Firebase connected successfully!',
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            SizedBox(height: 10),
-            ElevatedButton(onPressed: () {
-            Navigator.push(context,MaterialPageRoute(builder: (_) => StudentPage()));
-            }, 
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white
-            ),
-            child: Text("Create Student"))
+            const SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StudentPage()),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text("Create Student"),
+            )
           ],
         ),
       ),
