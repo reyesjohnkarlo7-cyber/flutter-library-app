@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard_page.dart';
 import 'manage_books_page.dart';
+import 'borrow_book_page.dart';
 import 'members_page.dart';
 import 'settings_page.dart';
 
@@ -14,10 +15,10 @@ class MainNavigation extends StatefulWidget {
 class _MainNavigationState extends State<MainNavigation> {
   int _currentIndex = 0;
 
-  // Pages controlled by the bottom navigation bar
   final List<Widget> _pages = [
     const DashboardPage(),
     const ManageBooksPage(),
+    const BorrowBookPage(),
     const MembersPage(),
     const SettingsPage(),
   ];
@@ -49,6 +50,10 @@ class _MainNavigationState extends State<MainNavigation> {
           BottomNavigationBarItem(
             icon: Icon(Icons.menu_book),
             label: 'Books',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bookmark_add),
+            label: 'Borrow',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.people),

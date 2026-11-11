@@ -1,6 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_firebase/student_page.dart';
+import 'package:flutter_firebase/dashboard_page.dart';
 import 'package:flutter_firebase/login_page.dart'; // Make sure this matches your login file name/path
 import 'firebase_options.dart';
 
@@ -59,7 +59,7 @@ class FirebaseHomePage extends StatelessWidget {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const StudentPage()),
+                  MaterialPageRoute(builder: (_) => const DashboardPage()),
                 );
               },
               style: ElevatedButton.styleFrom(

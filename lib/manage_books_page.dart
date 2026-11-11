@@ -11,76 +11,32 @@ class ManageBooksPage extends StatefulWidget {
 
 class _ManageBooksPageState extends State<ManageBooksPage> {
   String _searchQuery = '';
-  String _selectedFilter = 'All'; // Filter state
-  final List<String> _categories = ['Fiction', 'Non-Fiction', 'Programming', 'Science', 'Self-Help'];
+  String _selectedFilter = 'All';
 
-  // Show dialog to borrow a book
-  void _showBorrowDialog(BuildContext context, String bookId, String bookTitle, String category, int quantity) {
-    if (quantity <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This book is out of stock!'), backgroundColor: Colors.red));
-      return;
-    }
-
-    final nameController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Borrow "$bookTitle"', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003B7A))),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Enter borrower student name:'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: 'Student Name', border: OutlineInputBorder()),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF003B7A), foregroundColor: Colors.white),
-            onPressed: () async {
-              String borrower = nameController.text.trim();
-              if (borrower.isEmpty) return;
-
-              // 1. Add record to 'borrowed_books' collection
-              await FirebaseFirestore.instance.collection('borrowed_books').add({
-                'bookTitle': bookTitle,
-                'category': category,
-                'memberName': borrower,
-                'borrowedAt': FieldValue.serverTimestamp(),
-              });
-
-              // 2. Decrease book quantity by 1
-              await FirebaseFirestore.instance.collection('books').doc(bookId).update({
-                'quantity': quantity - 1,
-              });
-
-              if (mounted) {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Book borrowed successfully!'), backgroundColor: Colors.green));
-              }
-            },
-            child: const Text('Confirm Borrow'),
-          ),
-        ],
-      ),
-    );
-  }
+  final List<String> _categories = [
+    'Fantasy',
+    'Science Fiction',
+    'Mystery & Crime',
+    'Thriller & Suspense',
+    'Romance',
+    'Historical Fiction',
+    'Horror',
+    'Literary Fiction',
+    'Young Adult & New Adult',
+    'Biography & Memoir',
+    'Self-Help & Personal Development',
+    'History & Politics',
+    'True Crime',
+    'Science & Technology',
+    'Business, Finance & Economics',
+  ];
 
   void _showEditBookDialog(BuildContext context, String docId, Map<String, dynamic> currentData) {
     final titleController = TextEditingController(text: currentData['title'] ?? '');
     final authorController = TextEditingController(text: currentData['author'] ?? '');
     final descriptionController = TextEditingController(text: currentData['description'] ?? '');
     final quantityController = TextEditingController(text: (currentData['quantity'] ?? 1).toString());
-    String selectedCategory = currentData['category'] ?? 'Fiction';
+    String selectedCategory = currentData['category'] ?? 'Fantasy';
     if (!_categories.contains(selectedCategory)) {
       selectedCategory = _categories.first;
     }
@@ -108,6 +64,7 @@ class _ManageBooksPageState extends State<ManageBooksPage> {
                 const SizedBox(height: 4),
                 DropdownButtonFormField<String>(
                   value: selectedCategory,
+                  isExpanded: true,
                   decoration: const InputDecoration(border: OutlineInputBorder()),
                   items: _categories.map((cat) => DropdownMenuItem(value: cat, child: Text(cat))).toList(),
                   onChanged: (val) => setDialogState(() => selectedCategory = val!),
@@ -200,7 +157,6 @@ class _ManageBooksPageState extends State<ManageBooksPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Search Bar
             TextField(
               onChanged: (val) => setState(() => _searchQuery = val.toLowerCase()),
               decoration: InputDecoration(
@@ -214,8 +170,6 @@ class _ManageBooksPageState extends State<ManageBooksPage> {
               ),
             ),
             const SizedBox(height: 12),
-
-            // Filter Chips Horizontal Scroll
             SizedBox(
               height: 40,
               child: ListView.builder(
@@ -241,110 +195,136 @@ class _ManageBooksPageState extends State<ManageBooksPage> {
               ),
             ),
             const SizedBox(height: 12),
-
-            // Firestore Stream Builder List with Filtering Logic
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance.collection('books').snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+                builder: (context, bookSnapshot) {
+                  if (bookSnapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  if (!bookSnapshot.hasData || bookSnapshot.data!.docs.isEmpty) {
                     return const Center(child: Text('No books found. Add one!'));
                   }
 
-                  final docs = snapshot.data!.docs.where((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    final title = (data['title'] ?? '').toString().toLowerCase();
-                    final category = data['category'] ?? '';
-                    final quantity = data['quantity'] ?? 0;
+                  return StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection('borrowed_books').snapshots(),
+                    builder: (context, borrowSnapshot) {
+                      final borrowedDocs = borrowSnapshot.hasData ? borrowSnapshot.data!.docs : [];
+                      Map<String, int> borrowedCounts = {};
+                      for (var doc in borrowedDocs) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final title = (data['bookTitle'] ?? '').toString();
+                        borrowedCounts[title] = (borrowedCounts[title] ?? 0) + 1;
+                      }
 
-                    // Match search query
-                    bool matchesSearch = title.contains(_searchQuery);
+                      final docs = bookSnapshot.data!.docs.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final title = (data['title'] ?? '').toString().toLowerCase();
+                        final category = data['category'] ?? '';
+                        final quantity = data['quantity'] ?? 0;
 
-                    // Match filter category or availability
-                    bool matchesFilter = true;
-                    if (_selectedFilter == 'Available') {
-                      matchesFilter = quantity > 0;
-                    } else if (_selectedFilter != 'All') {
-                      matchesFilter = category == _selectedFilter;
-                    }
+                        bool matchesSearch = title.contains(_searchQuery);
+                        bool matchesFilter = true;
 
-                    return matchesSearch && matchesFilter;
-                  }).toList();
+                        if (_selectedFilter == 'Available') {
+                          matchesFilter = quantity > 0;
+                        } else if (_selectedFilter != 'All') {
+                          matchesFilter = category == _selectedFilter;
+                        }
 
-                  if (docs.isEmpty) {
-                    return const Center(child: Text('No books match this filter.'));
-                  }
+                        return matchesSearch && matchesFilter;
+                      }).toList();
 
-                  return ListView.builder(
-                    itemCount: docs.length,
-                    itemBuilder: (context, index) {
-                      final doc = docs[index];
-                      final data = doc.data() as Map<String, dynamic>;
-                      int qty = data['quantity'] ?? 0;
+                      if (docs.isEmpty) {
+                        return const Center(child: Text('No books match this filter.'));
+                      }
 
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2))],
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 50,
-                              height: 65,
-                              decoration: BoxDecoration(
-                                color: primaryBlue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.menu_book, color: primaryBlue),
+                      return ListView.builder(
+                        itemCount: docs.length,
+                        itemBuilder: (context, index) {
+                          final doc = docs[index];
+                          final data = doc.data() as Map<String, dynamic>;
+                          final title = data['title'] ?? 'No Title';
+                          int qty = data['quantity'] ?? 0;
+                          int borrowedCount = borrowedCounts[title] ?? 0;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2))],
                             ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(data['title'] ?? 'No Title', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: primaryBlue)),
-                                  const SizedBox(height: 2),
-                                  Text(data['author'] ?? 'Unknown Author', style: const TextStyle(color: Colors.black54, fontSize: 13)),
-                                  const SizedBox(height: 4),
-                                  Row(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 45,
+                                  height: 60,
+                                  decoration: BoxDecoration(
+                                    color: primaryBlue.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.menu_book, color: primaryBlue, size: 24),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                        decoration: BoxDecoration(color: const Color(0xFFE6F0FA), borderRadius: BorderRadius.circular(6)),
-                                        child: Text(data['category'] ?? 'General', style: const TextStyle(color: primaryBlue, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      Text(
+                                        title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: primaryBlue),
                                       ),
-                                      const SizedBox(width: 8),
-                                      Text('Qty: $qty', style: TextStyle(fontSize: 12, color: qty > 0 ? Colors.green : Colors.red, fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        data['author'] ?? 'Unknown Author',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(color: Colors.black54, fontSize: 12),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        crossAxisAlignment: WrapCrossAlignment.center,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(color: const Color(0xFFE6F0FA), borderRadius: BorderRadius.circular(4)),
+                                            child: Text(data['category'] ?? 'General', style: const TextStyle(color: primaryBlue, fontSize: 10, fontWeight: FontWeight.bold)),
+                                          ),
+                                          Text('Available: $qty', style: TextStyle(fontSize: 11, color: qty > 0 ? Colors.green : Colors.red, fontWeight: FontWeight.bold)),
+                                          Text('Borrowed: $borrowedCount', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
                                     ],
                                   ),
-                                ],
-                              ),
+                                ),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.all(8),
+                                      icon: const Icon(Icons.edit, color: Colors.blue, size: 20),
+                                      onPressed: () => _showEditBookDialog(context, doc.id, data),
+                                    ),
+                                    IconButton(
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.all(8),
+                                      icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                      onPressed: () => _showDeleteDialog(context, doc.id, title),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
-                            // Borrow Button
-                            IconButton(
-                              icon: const Icon(Icons.bookmark_add, color: primaryBlue),
-                              tooltip: 'Borrow Book',
-                              onPressed: () => _showBorrowDialog(context, doc.id, data['title'] ?? 'Book', data['category'] ?? 'Fiction', qty),
-                            ),
-                            // Edit Button
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () => _showEditBookDialog(context, doc.id, data),
-                            ),
-                            // Delete Button
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _showDeleteDialog(context, doc.id, data['title'] ?? 'Book'),
-                            ),
-                          ],
-                        ),
+                          );
+                        },
                       );
                     },
                   );
